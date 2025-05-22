@@ -4,8 +4,9 @@ A real-time arbitrage detection and trading system for cryptocurrency markets. T
 
 ## Features
 
-- **Multi-Exchange Support**: Monitors Bitcoin prices across Binance, KuCoin, and Coinbase
+- **Multi-Exchange Support**: Monitors cryptocurrency prices across Binance, KuCoin, and Coinbase
 - **Real-Time Arbitrage Detection**: Continuously scans for price disparities between exchanges
+- **Flexible Trading Options**: Trade only Bitcoin or only cryptocurrencies available on all exchanges
 - **Profit Calculation**: Accounts for trading fees and estimated slippage
 - **Portfolio Tracking**: Monitors theoretical balance and profits over time
 - **Configurable Parameters**: Easily adjust profit thresholds, trading pairs, and other settings
@@ -39,6 +40,11 @@ python arbitrage_system.py
 
 # Run with custom parameters
 python arbitrage_system.py --runtime 60 --balance 5000 --trade-amount 500 --auto-trade
+
+# Bitcoin-only mode
+python arbitrage_system.py --bitcoin-only
+
+# Default mode only considers coins available on all exchanges
 ```
 
 ### Command Line Options
@@ -47,6 +53,7 @@ python arbitrage_system.py --runtime 60 --balance 5000 --trade-amount 500 --auto
 - `--balance`: Initial portfolio balance (default: 10000)
 - `--trade-amount`: Amount to use per trade (default: 1000)
 - `--auto-trade`: Execute trades automatically (simulation)
+- `--bitcoin-only`: Only trade Bitcoin (BTCUSDT) instead of all available cryptocurrencies
 
 ## Configuration
 

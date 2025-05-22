@@ -347,17 +347,36 @@ class CoinbaseAPI(ExchangeAPI):
     def _convert_standard_symbol_to_coinbase(self, standard_symbol: str) -> Optional[str]:
         """Converts standard symbol (e.g., BTCUSDT) to Coinbase format (e.g., BTC-USD)."""
         if len(standard_symbol) < 6:
+            self.logger.warning(f"Symbol too short to convert: {standard_symbol}")
             return None
         
         # Extract base and quote currencies
         if standard_symbol.endswith("USDT"):
             base = standard_symbol[:-4]
             quote = "USD"  # Convert USDT to USD for Coinbase
+        elif standard_symbol.endswith("USD"):
+            base = standard_symbol[:-3]
+            quote = "USD"
+        elif standard_symbol.endswith("BTC"):
+            base = standard_symbol[:-3]
+            quote = "BTC"
+        elif standard_symbol.endswith("ETH"):
+            base = standard_symbol[:-3]
+            quote = "ETH"
         else:
             # For other formats, try a simple conversion
-            base = standard_symbol[:-3]
-            quote = standard_symbol[-3:]
+            # This is a best effort based on typical formats
+            for quote_suffix in ["BTC", "ETH", "USD", "USDC", "DAI", "EUR", "GBP"]:
+                if standard_symbol.endswith(quote_suffix):
+                    base = standard_symbol[:-len(quote_suffix)]
+                    quote = quote_suffix
+                    break
+            else:
+                # If no match found, use a default approach
+                base = standard_symbol[:-3]
+                quote = standard_symbol[-3:]
         
+        self.logger.debug(f"Converted {standard_symbol} to Coinbase format: {base}-{quote}")
         return f"{base}-{quote}"
     
     def get_ticker(self, symbol: str) -> Optional[PriceData]:
@@ -406,6 +425,7 @@ class CoinbaseAPI(ExchangeAPI):
             # Fetch all products first to get available markets
             products = self._make_request("products")
             if not products:
+                self.logger.error("Failed to fetch products from Coinbase")
                 return []
                 
             # Create a mapping of standard symbols to Coinbase symbols
@@ -413,22 +433,37 @@ class CoinbaseAPI(ExchangeAPI):
             for product in products:
                 if 'id' in product:
                     # Keep only the active products with base and quote currencies
-                    if product.get('status') == 'online' and '-' in product['id']:
+                    if product.get('status', 'online') == 'online' and '-' in product['id']:
                         coinbase_symbol = product['id']
                         standard_symbol = self._normalize_coinbase_symbol_to_standard(coinbase_symbol)
+                        
                         # Check if this matches our priority symbols
                         for priority in current_config.PRIORITY_SYMBOLS:
                             # Handle USDT->USD conversion for matching
-                            if priority.replace('USDT', 'USD') == standard_symbol:
+                            priority_mod = priority.replace('USDT', 'USD')
+                            if priority_mod == standard_symbol:
                                 symbol_map[priority] = coinbase_symbol
+                                self.logger.debug(f"Matched priority symbol {priority} to Coinbase symbol {coinbase_symbol}")
+            
+            self.logger.debug(f"Found {len(symbol_map)} matching symbols on Coinbase: {symbol_map}")
+            
+            # If we have priority symbols but none matched, try direct conversion
+            if not symbol_map and current_config.PRIORITY_SYMBOLS:
+                for priority in current_config.PRIORITY_SYMBOLS:
+                    coinbase_symbol = self._convert_standard_symbol_to_coinbase(priority)
+                    if coinbase_symbol:
+                        symbol_map[priority] = coinbase_symbol
+                        self.logger.debug(f"Using direct conversion for {priority} -> {coinbase_symbol}")
             
             # Fetch tickers for the matched symbols
             tickers = []
             for standard_symbol, coinbase_symbol in symbol_map.items():
                 try:
                     # Get the order book for bid/ask
+                    self.logger.debug(f"Fetching order book for {coinbase_symbol}")
                     order_book = self._make_request(f"products/{coinbase_symbol}/book", {"level": 1})
                     if not order_book or 'bids' not in order_book or 'asks' not in order_book:
+                        self.logger.warning(f"Invalid order book response for {coinbase_symbol}")
                         continue
                         
                     bid = float(order_book['bids'][0][0]) if order_book['bids'] else 0
@@ -448,6 +483,7 @@ class CoinbaseAPI(ExchangeAPI):
                         volume=0.0  # We don't get volume from the book endpoint
                     )
                     tickers.append(ticker)
+                    self.logger.debug(f"Successfully fetched ticker for {standard_symbol} from Coinbase")
                 except Exception as e:
                     self.logger.error(f"Error fetching {coinbase_symbol} from Coinbase: {e}")
                     continue
@@ -461,10 +497,11 @@ class CoinbaseAPI(ExchangeAPI):
 class ArbitrageDetector:
     """Real-time arbitrage detection engine."""
     
-    def __init__(self, exchanges: List[ExchangeAPI]):
+    def __init__(self, exchanges: List[ExchangeAPI], bitcoin_only: bool = False):
         self.exchanges = exchanges
         self.min_profit_percentage = current_config.MIN_PROFIT_PERCENTAGE
         self.max_profit_percentage = current_config.MAX_PROFIT_PERCENTAGE
+        self.bitcoin_only = bitcoin_only
         self.logger = get_logger("arbitrage_detector")
     
     def fetch_all_prices(self) -> Dict[str, List[PriceData]]:
@@ -521,10 +558,17 @@ class ArbitrageDetector:
             
             # Check each symbol across all exchange pairs
             for symbol, exchange_prices in symbol_prices.items():
-                if len(exchange_prices) < 2:
-                    self.logger.debug(f"Skipping {symbol} - only {len(exchange_prices)} exchanges available")
+                # Skip non-Bitcoin symbols if bitcoin_only mode is enabled
+                if self.bitcoin_only and symbol != "BTCUSDT":
+                    self.logger.debug(f"Skipping {symbol} - not Bitcoin in Bitcoin-only mode")
+                    continue
+                    
+                # Only consider symbols available on all exchanges
+                if len(exchange_prices) < len(self.exchanges):
+                    self.logger.debug(f"Skipping {symbol} - not available on all exchanges ({len(exchange_prices)}/{len(self.exchanges)})")
                     continue
                 
+                self.logger.debug(f"Processing {symbol} - available on all {len(self.exchanges)} exchanges")
                 exchange_names = list(exchange_prices.keys())
                 
                 # Compare every pair of exchanges
@@ -622,6 +666,7 @@ def main():
     parser.add_argument("--balance", type=float, default=10000, help="Initial portfolio balance")
     parser.add_argument("--trade-amount", type=float, default=1000, help="Amount to use per trade")
     parser.add_argument("--auto-trade", action="store_true", help="Execute trades automatically")
+    parser.add_argument("--bitcoin-only", action="store_true", help="Only trade Bitcoin (BTCUSDT)")
     args = parser.parse_args()
 
     try:
@@ -634,10 +679,14 @@ def main():
         logger.info(f"Initialized with {len(exchanges)} exchange(s).")
 
         # Create detector and portfolio tracker
-        detector = ArbitrageDetector(exchanges)
+        detector = ArbitrageDetector(exchanges, bitcoin_only=args.bitcoin_only)
         portfolio = PortfolioTracker(initial_balance=args.balance)
         
         logger.info(f"Monitoring {len(exchanges)} exchanges")
+        if args.bitcoin_only:
+            logger.info("Bitcoin-only mode enabled")
+        else:
+            logger.info("Trading all symbols available on all exchanges")
         logger.info(f"Minimum profit threshold: {detector.min_profit_percentage}%")
         print(f"Starting with initial balance: {args.balance:.2f} USD")
         print(f"Set to run for: {'indefinitely' if args.runtime == 0 else f'{args.runtime} minutes'}")

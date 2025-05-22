@@ -14,8 +14,8 @@ class Config:
     RETRY_DELAY = 1  # seconds between retries
     
     # Rate limiting
-    REQUESTS_PER_MINUTE = 100
-    REQUEST_DELAY = 0.6  # minimum seconds between requests
+    REQUESTS_PER_MINUTE = 60
+    REQUEST_DELAY = 1  # minimum seconds between requests
     
     # Arbitrage Detection Parameters
     MIN_PROFIT_PERCENTAGE = 0.16  # Just above trading fees + slippage (0.15% combined)
@@ -56,13 +56,13 @@ class Config:
         "BTCUSDT", # For all exchanges
         # Remove BTCUSD 
         # Add other Bitcoin pairs if necessary in the future
-        # "ETHUSDT",
-        # "ADAUSDT",
-        # "SOLUSDT",
-        # "DOGEUSDT",
-        # "MATICUSDT",
-        # "LINKUSDT",
-        # "DOTUSDT",
+        "ETHUSDT",
+        "ADAUSDT",
+        "SOLUSDT",
+        "DOGEUSDT",
+        # "MATICUSDT", # Removed - not available on all exchanges
+        "LINKUSDT",
+        "DOTUSDT",
     ]
     
     @classmethod
