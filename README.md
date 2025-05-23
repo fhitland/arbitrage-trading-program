@@ -21,8 +21,8 @@ A real-time arbitrage detection and trading system for cryptocurrency markets. T
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/cryptocurrency-arbitrage-system.git
-cd cryptocurrency-arbitrage-system
+git clone https://github.com/fhitland/arbitrage-trading-program.git
+cd arbitrage-trading-program
 
 # Create and activate a virtual environment
 python -m venv .venv
@@ -71,6 +71,7 @@ Edit `config.py` to modify:
 - `config.py`: Configuration settings
 - `utils.py`: Utility functions
 - `logger_config.py`: Logging configuration
+- `docs/`: Detailed documentation for each component
 
 ## Disclaimer
 
