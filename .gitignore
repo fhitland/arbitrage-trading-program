@@ -1,54 +1,45 @@
+# Ignore everything
+*
+*/
+!*/
+
+# Allow specific files and file types
+!*.py
+!requirements.txt
+!README.md
+!LICENSE
+
+# Still ignore these Python-related files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+ENV/
+*.egg-info/
+*.egg
+
+# Ignore all logs and databases
+logs/
+*.log
+*.db
+*.sqlite*
+arbitrage_data.db
+
+# Ignore GitHub related
+.github/
+.git/
+
+# Ignore docs directory but keep README
+docs/
+
 # Documentation
 expenation/
 *.md
 !README.md
 !LICENSE.md
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Logs and databases
-logs/
-*.log
-*.db
-*.sqlite3
-*.sqlite
-arbitrage_data.db
-
-# IDE files
-.idea/
-.vscode/
-*.swp
-*.swo
-.project
-.pydevproject
-.settings/
-*.sublime-workspace
 
 # OS specific files
 .DS_Store
